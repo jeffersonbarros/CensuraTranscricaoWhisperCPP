@@ -1,0 +1,94 @@
+# Arquivo .gitignore para o projeto CensuraTranscricaoWhisperCPP
+
+# Diretórios de build
+/build/
+/out/
+/bin/
+/lib/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+
+# Ninja
+build.ninja
+.ninja_deps
+.ninja_log
+
+# IDEs / editores
+.vscode/
+.vs/
+.idea/
+*.suo
+*.user
+*.sln
+*.vcxproj*
+
+# Swap / temp de editores
+*~
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Artefatos compilados / binários
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.dll
+*.dylib
+*.so
+*.exe
+
+# Logs e temporários
+*.log
+*.tmp
+*.temp
+
+# Arquivos de transcrição/saída gerados
+*.vtt
+*.srt
+
+# Modelos binários grandes (whisper models)
+*.bin
+models/
+whisper_models/
+
+# Ambientes Python (se usados)
+venv/
+.env/
+__pycache__/
+
+# Cobertura / profiling
+coverage/
+*.cover
+*.gcda
+*.gcno
+
+# Chaves / certificados
+*.pem
+*.key
+
+# Configurações locais
+local.config
+*.local
+
+# Arquivos do sistema
+core
+
+# Filtros gerais de arquivos temporários
+~$*
+
