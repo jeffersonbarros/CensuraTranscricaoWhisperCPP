@@ -20,7 +20,10 @@
 
 namespace fs = std::filesystem;
 
-static const std::string PASTA_ROOT = "/mnt/dados/censura95fm/Midias/95fm/";
+//pasta de testes
+static const std::string PASTA_ROOT = "/mnt/censura95fm/censura95fm/Midias/95fm/";
+//pasta de produção
+//static const std::string PASTA_ROOT = "/mnt/dados/censura95fm/Midias/95fm/";
 static const std::string DEFAULT_LANG = "pt";
 // Caminho padrão do modelo (aponta diretamente para o arquivo .bin do modelo)
 static const std::string DEFAULT_MODEL_PATH = "/home/jefferson/whisper.cpp/models/ggml-small.bin";
