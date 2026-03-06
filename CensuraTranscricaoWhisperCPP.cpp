@@ -43,26 +43,72 @@ bool transcrever_arquivo(const fs::path &caminho_arquivo, const std::string &mod
     nome_base.replace_extension();
     fs::path arquivo_saida = nome_base;
     arquivo_saida += ".vtt";
-
-    // Monta comando. As flags do whisper-cli podem variar entre instalações.
-    // Aqui usamos uma forma genérica: pedir saída VTT ou, caso não exista,
-    // redirecionar texto padrão para o arquivo .vtt.
+    // Monta comando. Tenta redirecionar a saída VTT diretamente para o arquivo
+    // de saída no mesmo diretório do arquivo de entrada. Algumas versões do
+    // CLI usam flags longas/curtas diferentes, então tentamos variantes.
     std::ostringstream cmd;
-    // tentativa principal: usar flags comuns (-m modelo -f arquivo -l lingua -ovtt)
-    cmd << "whisper-cli -m '" << model << "' -f '" << caminho_arquivo.string() << "' -l '" << lang << "' -ovtt -of '" << arquivo_saida.parent_path().string() << "'";
-
-    // redirecionar para o arquivo .vtt quando o binário escreve em stdout
+    // tentativa: whisper-cli escrevendo vtt em stdout -> redirecionar para arquivo
+    cmd << "whisper-cli -m '" << model << "' -f '" << caminho_arquivo.string() << "' -l '" << lang << "' -ovtt > '" << arquivo_saida.string() << "'";
+    // alternativa com flags longas
     cmd << " || whisper-cli --model '" << model << "' --file '" << caminho_arquivo.string() << "' --language '" << lang << "' --output-format vtt > '" << arquivo_saida.string() << "'";
+    // outra alternativa (ex.: python-whisper) que escreve em um diretório de saída
+    cmd << " || whisper --model '" << model << "' --language '" << lang << "' --output_format vtt -o '" << arquivo_saida.parent_path().string() << "' '" << caminho_arquivo.string() << "'";
 
     int rc = run_command(cmd.str());
     if (rc != 0) {
         std::cerr << "Aviso: execução do whisper-cli retornou codigo " << rc << " para arquivo " << caminho_arquivo << std::endl;
-        return false;
+        // mesmo que rc != 0, pode ter gerado o arquivo; iremos verificar abaixo
     }
 
+    // Se o arquivo não foi gerado no local esperado, procurar por possíveis
+    // arquivos .vtt gerados em outros diretórios e mover para o diretório do
+    // arquivo de entrada com o mesmo nome base.
     if (!fs::exists(arquivo_saida)) {
-        std::cerr << "Aviso: arquivo de saída não foi gerado: " << arquivo_saida << std::endl;
-        return false;
+        // locais a procurar: diretório do arquivo de entrada e diretório atual
+        std::vector<fs::path> candidatos;
+        candidatos.push_back(caminho_arquivo.parent_path());
+        candidatos.push_back(fs::current_path());
+
+        bool moved = false;
+        std::string stem = caminho_arquivo.stem().string();
+        for (const auto &dir : candidatos) {
+            try {
+                if (!fs::is_directory(dir)) continue;
+                for (auto &ent : fs::directory_iterator(dir)) {
+                    if (!ent.is_regular_file()) continue;
+                    if (ent.path().extension() != ".vtt") continue;
+                    std::string fname = ent.path().stem().string();
+                    // aceitar exatas ou que contenham o stem (caso alguma ferramenta
+                    // concatene extensões)
+                    if (fname == stem || fname.find(stem) != std::string::npos) {
+                        // mover/renomear para o path desejado
+                        try {
+                            fs::rename(ent.path(), arquivo_saida);
+                        } catch (const fs::filesystem_error &e) {
+                            // se rename falhar (diferente device), copiar e remover
+                            try {
+                                fs::copy_file(ent.path(), arquivo_saida, fs::copy_options::overwrite_existing);
+                                fs::remove(ent.path());
+                            } catch (...) {
+                                continue;
+                            }
+                        }
+                        std::cout << "Transcrição encontrada em " << dir << " e movida para: " << arquivo_saida << std::endl;
+                        moved = true;
+                        break;
+                    }
+                }
+            } catch (const fs::filesystem_error &e) {
+                // ignorar erros de leitura de diretório
+                continue;
+            }
+            if (moved) break;
+        }
+
+        if (!moved) {
+            std::cerr << "Aviso: arquivo de saída não foi gerado: " << arquivo_saida << std::endl;
+            return false;
+        }
     }
 
     std::cout << "Transcrição salva em: " << arquivo_saida << std::endl;

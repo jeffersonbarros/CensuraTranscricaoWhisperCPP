@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Itens de Solução/">
+    <File Path=".gitignore" />
+    <File Path="Censura.py" />
+    <File Path="CensuraTranscricaoWhisperCPP.cpp" />
+    <File Path="CensuraTranscricaoWhisperCPP.h" />
+    <File Path="CMakeLists.txt" />
+    <File Path="CMakePresets.json" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>
