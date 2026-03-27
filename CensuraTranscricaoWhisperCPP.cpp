@@ -225,9 +225,61 @@ int main(int argc, char **argv) {
 
         if (!unprocessed.empty()) {
             for (auto &p : unprocessed) {
+                // preparar paths
+                fs::path nome_base = p;
+                nome_base.replace_extension();
+                fs::path arquivo_vtt = nome_base;
+                arquivo_vtt += ".vtt";
+
+                // Se o VTT já existe, pular
+                if (fs::exists(arquivo_vtt)) {
+                    std::cout << "VTT ja existe, pulando: " << arquivo_vtt << std::endl;
+                    arquivos_processados.insert(p.string());
+                    continue;
+                }
+
+                // Tentar criar um lock atomic usando create_directory em um diretório de lock.
+                // create_directory é atomic e falhará se outro processo já tiver criado o lock.
+                fs::path lock_dir = nome_base;
+                lock_dir += ".transcribing.lock";
+                bool lock_created = false;
+                try {
+                    lock_created = fs::create_directory(lock_dir);
+                } catch (const fs::filesystem_error &e) {
+                    lock_created = false;
+                }
+
+                if (!lock_created) {
+                    std::cout << "Arquivo ja esta sendo transcrito por outro processo, pulando: " << p << std::endl;
+                    continue;
+                }
+
+                // Verificar se o arquivo foi modificado recentemente (possivel gravação em andamento).
+                // Se a ultima modificação for muito recente, consideramos o arquivo em uso e pulamos.
+                try {
+                    auto ftime = fs::last_write_time(p);
+                    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                        ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now()
+                    );
+                    auto age = std::chrono::system_clock::now() - sctp;
+                    if (age < std::chrono::seconds(10)) {
+                        std::cout << "Arquivo parece estar em uso (modificado recentemente), pulando: " << p << std::endl;
+                        // remover lock e pular
+                        try { fs::remove_all(lock_dir); } catch (...) {}
+                        continue;
+                    }
+                } catch (...) {
+                    // em caso de erro ao checar tempo, prosseguir com o processamento
+                }
+
                 // Usar sempre o caminho de modelo padrão conforme solicitado
                 std::string model_path = DEFAULT_MODEL_PATH;
-                transcrever_arquivo(p, model_path, lang);
+                bool ok = transcrever_arquivo(p, model_path, lang);
+
+                // remover lock independentemente do resultado
+                try { fs::remove_all(lock_dir); } catch (...) {}
+
+                // marcar como processado para nao tentar novamente
                 arquivos_processados.insert(p.string());
             }
             continue; // checar novamente
